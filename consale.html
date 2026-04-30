@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>주변 편의점 찾기 (네이버 지도)</title>
+    <script
+      type="text/javascript"
+      src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=cc4n4apblb"
+    ></script>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      #map {
+        width: 100%;
+        height: 100vh;
+      }
+      .info-window {
+        padding: 10px;
+        font-size: 14px;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <h2>주변 편의점</h2>
+      </div>
+      <ul id="store-list">
+        <!-- JS에서 목록이 여기에 추가됩니다 -->
+      </ul>
+    </div>
+    <script>
+      let map;
+      let userMarker;
+      let storeMarkers = [];
+
+      // 1. 초기화: 사용자의 현재 위치 가져오기
+      function initMap() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const lat = position.coords.latitude;
+              const lng = position.coords.longitude;
+              loadNaverMap(lat, lng);
+            },
+            (error) => {
+              console.error("위치 정보를 가져올 수 없습니다.", error);
+              // 위치를 가져오지 못했을 경우 기본 위치 (예: 서울시청)
+              loadNaverMap(37.5666805, 126.9784147);
+            },
+          );
+        } else {
+          alert(
+            "이 브라우저에서는 위치 정보(Geolocation)를 지원하지 않습니다.",
+          );
+          loadNaverMap(37.5666805, 126.9784147);
+        }
+      }
+
+      // 2. 네이버 지도 생성
+      function loadNaverMap(lat, lng) {
+        const userLocation = new naver.maps.LatLng(lat, lng);
+
+        map = new naver.maps.Map("map", {
+          center: userLocation,
+          zoom: 16, // 줌 레벨 (1~21)
+        });
+
+        // 사용자 현재 위치 마커 표시
+        userMarker = new naver.maps.Marker({
+          position: userLocation,
+          map: map,
+          icon: {
+            content:
+              '<div style="width:20px;height:20px;background:blue;border-radius:50%;border:2px solid white;"></div>',
+            anchor: new naver.maps.Point(10, 10),
+          },
+        });
+
+        // 3. 주변 편의점 검색 (가상 데이터)
+        fetchConvenienceStores(lat, lng);
+      }
+
+      // 3. 실시간으로 편의점 데이터 가져오기
+      async function fetchConvenienceStores(lat, lng) {
+        try {
+          // 내가 만든 서버(3000번 포트)에 검색 요청
+          // '편의점'이라는 키워드로 검색 결과 요청
+          const response = await fetch("/api/search?query=편의점");
+          const data = await response.json();
+
+          // 네이버 검색 API 결과를 지도 마커 형식으로 변환
+          const stores = data.items.map((item) => {
+            // 네이버 검색 결과의 좌표는 KATECH(TM128) 형식이므로 변환이 필요할 수 있습니다.
+            // 편의상 여기서는 단순 마커 표시를 위해 구조만 맞춥니다.
+            // (실제 정확한 위치를 위해선 좌표 변환 라이브러리 사용 권장)
+            return {
+              title: item.title.replace(/<[^>]*>?/gm, ""), // HTML 태그 제거
+              address: item.address,
+              // 좌표 변환이 필요하므로, 일단 예제 수준에선 제목과 주소만 활용
+            };
+          });
+
+          console.log("실시간 데이터:", stores);
+          // 마커 표시 함수 실행...
+        } catch (error) {
+          console.error("데이터 로드 실패:", error);
+        }
+      }
+
+      // 4. 받아온 데이터를 바탕으로 지도에 마커 및 정보창 생성
+      function displayStoreMarkers(stores) {
+        stores.forEach((store) => {
+          const position = new naver.maps.LatLng(store.lat, store.lng);
+
+          const marker = new naver.maps.Marker({
+            position: position,
+            map: map,
+            title: store.title,
+          });
+
+          // 정보창 내용 HTML
+          const contentString = `
+                <div class="info-window">
+                    <strong>${store.title}</strong><br>
+                    ${store.address}
+                </div>
+            `;
+
+          const infoWindow = new naver.maps.InfoWindow({
+            content: contentString,
+            maxWidth: 200,
+            backgroundColor: "#fff",
+            borderColor: "#ccc",
+            borderWidth: 1,
+            anchorSize: new naver.maps.Size(10, 10),
+            anchorSkew: true,
+            pixelOffset: new naver.maps.Point(0, -10),
+          });
+
+          // 마커 클릭 시 정보창 열기/닫기 이벤트
+          naver.maps.Event.addListener(marker, "click", function (e) {
+            if (infoWindow.getMap()) {
+              infoWindow.close();
+            } else {
+              infoWindow.open(map, marker);
+            }
+          });
+
+          storeMarkers.push(marker);
+        });
+      }
+
+      // 스크립트 로드 완료 시 지도 초기화 실행
+      window.onload = initMap;
+    </script>
+  </body>
+</html>

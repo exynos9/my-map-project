@@ -1,0 +1,63 @@
+/* 레이아웃 설정 */
+.main-container {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+}
+
+#map {
+  flex: 1; /* 지도가 남은 공간을 다 차지함 */
+}
+
+#sidebar {
+  width: 350px;
+  background: #ffffff;
+  border-left: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+}
+
+/* 목록 스타일 */
+#store-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto; /* 목록이 길어지면 스크롤 */
+}
+
+.store-item {
+  padding: 15px 20px;
+  border-bottom: 1px solid #f1f1f1;
+  cursor: pointer;
+  transition: background 0.2s ease; /* 부드러운 틴트 효과 */
+}
+
+/* 마우스 올렸을 때 틴트 효과 */
+.store-item:hover {
+  background-color: #f0f7ff; /* 연한 파란색 틴트 */
+}
+
+/* 선택되었을 때 강조 효과 */
+.store-item.active {
+  background-color: #e7f3ff;
+  border-left: 4px solid #007bff;
+}
+
+.store-item strong {
+  display: block;
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.store-item span {
+  font-size: 13px;
+  color: #777;
+}
