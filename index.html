@@ -3,163 +3,197 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>주변 편의점 찾기 (네이버 지도)</title>
+    <title>주변 편의점 & 할인 정보</title>
     <script
       type="text/javascript"
       src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=cc4n4apblb"
     ></script>
-    <style>
-      body,
-      html {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-      }
-      #map {
-        width: 100%;
-        height: 100vh;
-      }
-      .info-window {
-        padding: 10px;
-        font-size: 14px;
-        color: #333;
-      }
-    </style>
   </head>
   <body>
-    <div id="map"></div>
-    <div id="sidebar">
-      <div class="sidebar-header">
-        <h2>주변 편의점</h2>
+    <div class="main-container">
+      <div id="map"></div>
+
+      <div id="discount-tile" class="hidden">
+        <div class="tile-header">
+          <h3 id="tile-store-name">편의점 이름</h3>
+          <button id="close-tile-btn">&times;</button>
+        </div>
+        <div id="tile-product-list"></div>
       </div>
-      <ul id="store-list">
-        <!-- JS에서 목록이 여기에 추가됩니다 -->
-      </ul>
+
+      <div id="sidebar">
+        <div class="sidebar-header">
+          <h2>주변 편의점 목록</h2>
+        </div>
+        <ul id="store-list"></ul>
+      </div>
     </div>
+
     <script>
       let map;
-      let userMarker;
       let storeMarkers = [];
+      let allDiscountEvents = []; // 깃허브에서 받아온 전체 할인 데이터 저장용
 
-      // 1. 초기화: 사용자의 현재 위치 가져오기
-      function initMap() {
+      // 1. 초기화: 지도 켜기 및 깃허브 할인 데이터 가져오기
+      async function init() {
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             (position) => {
-              const lat = position.coords.latitude;
-              const lng = position.coords.longitude;
-              loadNaverMap(lat, lng);
+              loadNaverMap(position.coords.latitude, position.coords.longitude);
             },
-            (error) => {
-              console.error("위치 정보를 가져올 수 없습니다.", error);
-              // 위치를 가져오지 못했을 경우 기본 위치 (예: 서울시청)
+            () => {
               loadNaverMap(37.5666805, 126.9784147);
-            },
+            }, // 위치 실패 시 기본 서울시청
           );
         } else {
-          alert(
-            "이 브라우저에서는 위치 정보(Geolocation)를 지원하지 않습니다.",
-          );
           loadNaverMap(37.5666805, 126.9784147);
+        }
+
+        // 지도 켜지면서 동시에 깃허브 JSON 파일 읽어오기
+        await loadDiscountData();
+      }
+
+      // 2. 네이버 지도 로드 및 주변 검색 호출
+      function loadNaverMap(lat, lng) {
+        const userLocation = new naver.maps.LatLng(lat, lng);
+        map = new naver.maps.Map("map", {
+          center: userLocation,
+          zoom: 16,
+        });
+
+        // 실시간 서버(Vercel) 호출
+        fetchConvenienceStores();
+      }
+
+      // 3. 깃허브에서 할인 정보 받아오기
+      async function loadDiscountData() {
+        try {
+          // 수정 전: const targetUrl = "https://raw.githubusercontent.com/...";
+          // 수정 후: 내 Vercel 서버 엔드포인트 호출
+          const response = await fetch("/api/discount");
+          allDiscountEvents = await response.json();
+        } catch (error) {
+          console.error("할인 데이터 로드 실패:", error);
         }
       }
 
-      // 2. 네이버 지도 생성
-      function loadNaverMap(lat, lng) {
-        const userLocation = new naver.maps.LatLng(lat, lng);
-
-        map = new naver.maps.Map("map", {
-          center: userLocation,
-          zoom: 16, // 줌 레벨 (1~21)
-        });
-
-        // 사용자 현재 위치 마커 표시
-        userMarker = new naver.maps.Marker({
-          position: userLocation,
-          map: map,
-          icon: {
-            content:
-              '<div style="width:20px;height:20px;background:blue;border-radius:50%;border:2px solid white;"></div>',
-            anchor: new naver.maps.Point(10, 10),
-          },
-        });
-
-        // 3. 주변 편의점 검색 (가상 데이터)
-        fetchConvenienceStores(lat, lng);
-      }
-
-      // 3. 실시간으로 편의점 데이터 가져오기
-      async function fetchConvenienceStores(lat, lng) {
+      // 4. 내 Vercel 백엔드 서버에서 편의점 위치 가져오기
+      async function fetchConvenienceStores() {
         try {
-          // 내가 만든 서버(3000번 포트)에 검색 요청
-          // '편의점'이라는 키워드로 검색 결과 요청
           const response = await fetch("/api/search?query=편의점");
           const data = await response.json();
 
-          // 네이버 검색 API 결과를 지도 마커 형식으로 변환
-          const stores = data.items.map((item) => {
-            // 네이버 검색 결과의 좌표는 KATECH(TM128) 형식이므로 변환이 필요할 수 있습니다.
-            // 편의상 여기서는 단순 마커 표시를 위해 구조만 맞춥니다.
-            // (실제 정확한 위치를 위해선 좌표 변환 라이브러리 사용 권장)
-            return {
-              title: item.title.replace(/<[^>]*>?/gm, ""), // HTML 태그 제거
-              address: item.address,
-              // 좌표 변환이 필요하므로, 일단 예제 수준에선 제목과 주소만 활용
-            };
-          });
-
-          console.log("실시간 데이터:", stores);
-          // 마커 표시 함수 실행...
+          if (data.items && data.items.length > 0) {
+            displayStoreMarkers(data.items);
+          }
         } catch (error) {
-          console.error("데이터 로드 실패:", error);
+          console.error("편의점 위치 로드 실패:", error);
         }
       }
 
-      // 4. 받아온 데이터를 바탕으로 지도에 마커 및 정보창 생성
-      function displayStoreMarkers(stores) {
-        stores.forEach((store) => {
-          const position = new naver.maps.LatLng(store.lat, store.lng);
+      // 5. 마커 찍기 및 오른쪽 리스트 생성 + 반투명 타일 연동
+      function displayStoreMarkers(items) {
+        const listEl = document.getElementById("store-list");
+        listEl.innerHTML = "";
 
+        storeMarkers.forEach((marker) => marker.setMap(null));
+        storeMarkers = [];
+
+        items.forEach((item) => {
+          // TM128 좌표를 위경도로 변환
+          const tm128 = new naver.maps.Point(
+            Number(item.mapx),
+            Number(item.mapy),
+          );
+          const latlng = naver.maps.TransCoord.fromTM128ToLatLng(tm128);
+          const title = item.title.replace(/<[^>]*>?/gm, "");
+
+          // 마커 생성
           const marker = new naver.maps.Marker({
-            position: position,
+            position: latlng,
             map: map,
-            title: store.title,
+            title: title,
           });
 
-          // 정보창 내용 HTML
-          const contentString = `
-                <div class="info-window">
-                    <strong>${store.title}</strong><br>
-                    ${store.address}
-                </div>
+          // 오른쪽 사이드바에 들어갈 블록(li) 생성
+          const listItem = document.createElement("li");
+          listItem.className = "store-item";
+          listItem.innerHTML = `
+                <strong>${title}</strong>
+                <span>${item.address}</span>
             `;
 
-          const infoWindow = new naver.maps.InfoWindow({
-            content: contentString,
-            maxWidth: 200,
-            backgroundColor: "#fff",
-            borderColor: "#ccc",
-            borderWidth: 1,
-            anchorSize: new naver.maps.Size(10, 10),
-            anchorSkew: true,
-            pixelOffset: new naver.maps.Point(0, -10),
+          // 블록이나 마커를 클릭했을 때 실행할 핵심 이벤트
+          listItem.onclick = () => {
+            document
+              .querySelectorAll(".store-item")
+              .forEach((li) => li.classList.remove("active"));
+            listItem.classList.add("active");
+
+            map.panTo(latlng); // 지도를 해당 편의점으로 부드럽게 이동
+            showDiscountTile(title); // 왼쪽 반투명 타일에 할인 정보 띄우기
+          };
+
+          naver.maps.Event.addListener(marker, "click", () => {
+            listItem.click();
           });
 
-          // 마커 클릭 시 정보창 열기/닫기 이벤트
-          naver.maps.Event.addListener(marker, "click", function (e) {
-            if (infoWindow.getMap()) {
-              infoWindow.close();
-            } else {
-              infoWindow.open(map, marker);
-            }
-          });
-
+          listEl.appendChild(listItem);
           storeMarkers.push(marker);
         });
       }
 
-      // 스크립트 로드 완료 시 지도 초기화 실행
-      window.onload = initMap;
+      // 6. 반투명 타일에 할인 상품 뿌려주기
+      function showDiscountTile(storeName) {
+        const tile = document.getElementById("discount-tile");
+        const tileTitle = document.getElementById("tile-store-name");
+        const productList = document.getElementById("tile-product-list");
+
+        // 이름에 따라 브랜드 필터링 기준 잡기
+        let brand = "GS25";
+        if (storeName.includes("CU") || storeName.includes("씨유"))
+          brand = "CU";
+        else if (storeName.includes("세븐일레븐")) brand = "SEVEN-ELEVEN";
+        else if (storeName.includes("이마트24")) brand = "EMART24";
+
+        tileTitle.innerText = `${storeName} 행사 상품`;
+        productList.innerHTML = "";
+
+        // 내 깃허브 JSON 배열에서 해당 브랜드 상품만 쏙 골라내기
+        const filteredProducts = allDiscountEvents.filter(
+          (item) => item.store.toUpperCase() === brand.toUpperCase(),
+        );
+
+        if (filteredProducts.length === 0) {
+          productList.innerHTML =
+            '<p style="grid-column: span 2; color:#999; text-align:center;">행사 정보가 없습니다.</p>';
+        } else {
+          filteredProducts.forEach((prod) => {
+            const card = document.createElement("div");
+            card.className = "product-card";
+            card.innerHTML = `
+                    <span class="badge-event">${prod.events[0] || "행사"}</span>
+                    <img class="product-img" src="${prod.image_url}" onerror="this.src='https://via.placeholder.com/80?text=No+Image'" alt="${prod.name}">
+                    <div class="product-name">${prod.name}</div>
+                    <div class="price-info">
+                        <span class="orig-price">${prod.original_price.toLocaleString()}원</span><br>
+                        <span class="disc-price">${prod.price.toLocaleString()}원 (${prod.discount_rate})</span>
+                    </div>
+                `;
+            productList.appendChild(card);
+          });
+        }
+
+        tile.classList.remove("hidden"); // 반투명 타일 보이기
+      }
+
+      // X 버튼 누르면 반투명 타일 닫기
+      document.getElementById("close-tile-btn").onclick = () => {
+        document.getElementById("discount-tile").classList.add("hidden");
+      };
+
+      // 브라우저 켜지면 실행
+      window.onload = init;
     </script>
   </body>
 </html>

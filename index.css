@@ -1,12 +1,22 @@
+body,
+html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: "Malgun Gothic", dotum, sans-serif;
+}
+
 /* 레이아웃 설정 */
 .main-container {
   display: flex;
   width: 100%;
   height: 100vh;
+  position: relative;
 }
 
 #map {
   flex: 1; /* 지도가 남은 공간을 다 차지함 */
+  height: 100%;
 }
 
 #sidebar {
@@ -16,6 +26,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  z-index: 10;
 }
 
 .sidebar-header {
@@ -29,19 +40,19 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  overflow-y: auto; /* 목록이 길어지면 스크롤 */
+  overflow-y: auto;
 }
 
 .store-item {
   padding: 15px 20px;
   border-bottom: 1px solid #f1f1f1;
   cursor: pointer;
-  transition: background 0.2s ease; /* 부드러운 틴트 효과 */
+  transition: background 0.2s ease;
 }
 
 /* 마우스 올렸을 때 틴트 효과 */
 .store-item:hover {
-  background-color: #f0f7ff; /* 연한 파란색 틴트 */
+  background-color: #f0f7ff;
 }
 
 /* 선택되었을 때 강조 효과 */
@@ -60,4 +71,114 @@
 .store-item span {
   font-size: 13px;
   color: #777;
+}
+
+/* 반투명 오버레이 타일 스타일 */
+#discount-tile {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 380px;
+  max-height: 85vh;
+  background: rgba(255, 255, 255, 0.85); /* 반투명 배경 */
+  backdrop-filter: blur(10px); /* 배경 흐림 효과 */
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+#discount-tile.hidden {
+  display: none;
+}
+
+.tile-header {
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.tile-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+#close-tile-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+
+/* 상품 리스트 영역 */
+#tile-product-list {
+  padding: 15px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 2열 배치 */
+  gap: 12px;
+}
+
+/* 상품 카드 스타일 */
+.product-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.product-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  margin-bottom: 8px;
+}
+
+.badge-event {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #ff4757;
+  color: white;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  border-radius: 4px;
+}
+
+.product-name {
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.price-info {
+  font-size: 12px;
+  margin-top: 4px;
+}
+.orig-price {
+  color: #999;
+  text-decoration: line-through;
+  font-size: 11px;
+}
+.disc-price {
+  color: #2ed573;
+  font-weight: bold;
 }
