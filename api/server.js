@@ -107,3 +107,19 @@ function displayStoreMarkers(items) {
     storeMarkers.push(marker);
   });
 }
+const axios = require('axios');
+
+export default async function handler(req, res) {
+    try {
+        // Vercel 서버가 내 깃허브 토큰(비밀키)을 헤더에 얹어서 요청합니다.
+        const response = await axios.get('https://raw.githubusercontent.com/swswsw0518/amrt-discount/main/data-crawler/all_convenience_events.json', {
+            headers: {
+                'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3.raw'
+            }
+        });
+        res.status(200).json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+}
